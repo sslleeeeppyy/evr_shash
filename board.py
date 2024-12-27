@@ -74,16 +74,14 @@ class CheckersBoard:
         if item_id:
             # Получаем цвет
             current_color = self.canvas_cells[row][col].itemcget(item_id, "fill")
-            # Проверяем, что это наша шашка
-            if (self.isPlayerTurn and current_color == self.playerColor) or \
-               (not self.isPlayerTurn and current_color == self.autoColor):
-                # Когда можно перешагнуть, нельзя выбирать другие ходы
+            if current_color == color:
+                # Когда можно перешагнуть, нельзя выбирать другие оды
                 if self.required_highlighted and (row, col) not in self.required_highlighted:
                     if len(self.find_possibilities_to_attack(row, col)) == 0:
                         print(f"Есть подсвеченные ячейки, попытка выбрать неподсвеченную")
                         return
 
-                # Снимаем подсветку с предыдущей ячейки
+                # Снимаем подсветку с предыдущей ячейки, если она была подсвечена
                 self.clear_highlighted_moves()
                 # Выделяем необходимые
                 self.light_required_moves()
@@ -96,14 +94,17 @@ class CheckersBoard:
                 prev_row, prev_col = self.prev_highlighted
                 if (row, col) in self.highlighted_moves:
                     # Получаем цвет ходящего
-                    color = self.cells[prev_row][prev_col].color
+                    if not self.isPlayerTurn:
+                        color = self.playerColor
+                    else:
+                        color = self.autoColor
                     # Двигаем
                     self.move_checker(prev_row, prev_col, row, col)
                     deleted = False
                     # Если далеко пошли, значит надо проверить, кого убили
                     if abs(prev_row - row) > 2 or abs(prev_col - col) > 2:
                         deleted = True
-                        self.delete_checker(prev_row, prev_col, row, col, self.autoColor if color == self.playerColor else self.playerColor)
+                        self.delete_checker(prev_row, prev_col, row, col, color)
                     # Отрисовка
                     self.canvas_cells[prev_row][prev_col].delete('checker')
                     self.canvas_cells[prev_row][prev_col].delete('crown')
@@ -170,10 +171,8 @@ class CheckersBoard:
         row, col = checker.row, checker.col
         req_moves = self.find_possibilities_to_attack(row, col)
         if len(req_moves) > 0:
-            if checker.is_queen:
-                moves.extend(req_moves)
-            else:
-                return req_moves
+            return req_moves  # Если есть обязательные ходы, возвращаем их сразу
+
         # Шашки могут двигаться по диагонали
         if checker.is_queen:
             # добавляем ходы королевы
@@ -182,15 +181,16 @@ class CheckersBoard:
             moves.extend(self.find_queen_moves(row, col, 1, 1))
             moves.extend(self.find_queen_moves(row, col, 1, -1))
         else:
-            if checker.color == self.autoColor:  # "white"
+            if checker.color == "white":
                 moves.append((row + 1, col - 1))
                 moves.append((row + 1, col + 1))
-            elif checker.color == self.playerColor:  # "#808080"
+            elif checker.color == "#808080":
                 moves.append((row - 1, col - 1))
                 moves.append((row - 1, col + 1))
-        # Теперь уберем из списка те ходы, которые выходят за границы доски
+        
+        # Убираем ходы, выходящие за границы доски
         moves = [(r, c) for r, c in moves if 0 <= r < 8 and 0 <= c < 8]
-        # Уберем из списка ходы, которые уже заняты другими шашками
+        # Убираем ходы, занятые другими шашками
         moves = [(r, c) for r, c in moves if self.cells[r][c] is None]
         return moves
 
@@ -306,10 +306,10 @@ class CheckersBoard:
                     self.cells[row + 2][col].color != color) and (self.cells[row + 4][col] is None):
                 moves.append((row + 4, col))
         else:
-            moves.extend(self.find_queen_attack(row, col, -1, 0, color))
-            moves.extend(self.find_queen_attack(row, col, 1, 0, color))
-            moves.extend(self.find_queen_attack(row, col, 0, -1, color))
-            moves.extend(self.find_queen_attack(row, col, 0, 1, color))
+            moves.extend(self.find_queen_attack(row, col, -1, 1, color))
+            moves.extend(self.find_queen_attack(row, col, -1, -1, color))
+            moves.extend(self.find_queen_attack(row, col, 1, 1, color))
+            moves.extend(self.find_queen_attack(row, col, 1, -1, color))
         return moves
 
     def find_queen_attack(self, row, col, row_dif, col_dif, color):
@@ -318,7 +318,7 @@ class CheckersBoard:
         ch_row = row + row_dif
         ch_col = col + col_dif
         while 8 > ch_col >= 0 and 8 > ch_row >= 0:
-            if self.cells[ch_row][ch_col] is None and get_cell_color(ch_row, ch_col) == 'black' and enemy_has_met:
+            if self.cells[ch_row][ch_col] is None and get_cell_color(ch_row, ch_col) == '#8B4513' and enemy_has_met:
                 moves.append((ch_row, ch_col))
             if self.cells[ch_row][ch_col] is not None:
                 if enemy_has_met:
